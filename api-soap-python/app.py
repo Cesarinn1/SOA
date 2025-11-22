@@ -4,13 +4,10 @@ Universidad Autonoma Veracruzana
 Arquitectura Orientada a Servicios
 
 Este servicio implementa operaciones CRUD para la entidad Estudiantes
-utilizando el protocolo SOAP con Python y Spyne.
+utilizando el protocolo SOAP con Python y Flask.
 """
 
-from spyne import Application, Service, rpc, Unicode, Integer, Array, ComplexModel, Iterable
-from spyne.protocol.soap import Soap11
-from spyne.server.wsgi import WsgiApplication
-from wsgiref.simple_server import make_server
+from flask import Flask, request, Response
 import mysql.connector
 from mysql.connector import Error
 import logging
@@ -19,13 +16,18 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+app = Flask(__name__)
+
 # Configuracion de la base de datos
 DB_CONFIG = {
     'host': 'localhost',
     'database': 'uav_sistema_academico',
     'user': 'root',
-    'password': ''  # Cambiar segun tu configuracion
+    'password': 'MySQL2024!'
 }
+
+# Namespace para SOAP
+NAMESPACE = "http://uav.mx/servicios/estudiantes"
 
 
 def get_db_connection():
@@ -39,433 +41,411 @@ def get_db_connection():
         return None
 
 
-class Estudiante(ComplexModel):
-    """Modelo complejo para representar un Estudiante en SOAP"""
-    id_estudiante = Integer
-    matricula = Unicode
-    nombre = Unicode
-    apellido_paterno = Unicode
-    apellido_materno = Unicode
-    email = Unicode
-    telefono = Unicode
-    fecha_nacimiento = Unicode
-    direccion = Unicode
-    fecha_ingreso = Unicode
-    estatus = Unicode
+def crear_respuesta_soap(body_content):
+    """Crea un envelope SOAP con el contenido dado"""
+    return f'''<?xml version="1.0" encoding="UTF-8"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+               xmlns:tns="{NAMESPACE}">
+    <soap:Body>
+        {body_content}
+    </soap:Body>
+</soap:Envelope>'''
 
 
-class EstudianteInput(ComplexModel):
-    """Modelo para entrada de datos de estudiante"""
-    matricula = Unicode
-    nombre = Unicode
-    apellido_paterno = Unicode
-    apellido_materno = Unicode
-    email = Unicode
-    telefono = Unicode
-    fecha_nacimiento = Unicode
-    direccion = Unicode
-    fecha_ingreso = Unicode
-    estatus = Unicode
+def estudiante_to_xml(est):
+    """Convierte un diccionario de estudiante a XML"""
+    return f'''<tns:Estudiante>
+            <tns:id_estudiante>{est['id_estudiante']}</tns:id_estudiante>
+            <tns:matricula>{est['matricula']}</tns:matricula>
+            <tns:nombre>{est['nombre']}</tns:nombre>
+            <tns:apellido_paterno>{est['apellido_paterno']}</tns:apellido_paterno>
+            <tns:apellido_materno>{est['apellido_materno'] or ''}</tns:apellido_materno>
+            <tns:email>{est['email']}</tns:email>
+            <tns:telefono>{est['telefono'] or ''}</tns:telefono>
+            <tns:fecha_nacimiento>{est['fecha_nacimiento'] or ''}</tns:fecha_nacimiento>
+            <tns:direccion>{est['direccion'] or ''}</tns:direccion>
+            <tns:fecha_ingreso>{est['fecha_ingreso']}</tns:fecha_ingreso>
+            <tns:estatus>{est['estatus']}</tns:estatus>
+        </tns:Estudiante>'''
 
 
-class RespuestaOperacion(ComplexModel):
-    """Modelo para respuestas de operaciones"""
-    exito = Unicode
-    mensaje = Unicode
-    codigo = Integer
+def obtener_estudiante_db(matricula):
+    """Obtiene un estudiante por matricula"""
+    connection = get_db_connection()
+    if not connection:
+        return None
 
-
-class EstudianteService(Service):
-    """
-    Servicio SOAP para gestion de Estudiantes
-
-    Operaciones disponibles:
-    - obtener_estudiante: Obtiene un estudiante por matricula
-    - listar_estudiantes: Lista todos los estudiantes
-    - crear_estudiante: Crea un nuevo estudiante
-    - actualizar_estudiante: Actualiza datos de un estudiante
-    - eliminar_estudiante: Elimina un estudiante
-    """
-
-    @rpc(Unicode, _returns=Estudiante)
-    def obtener_estudiante(ctx, matricula):
+    try:
+        cursor = connection.cursor(dictionary=True)
+        query = """
+            SELECT id_estudiante, matricula, nombre, apellido_paterno,
+                   apellido_materno, email, telefono,
+                   DATE_FORMAT(fecha_nacimiento, '%Y-%m-%d') as fecha_nacimiento,
+                   direccion,
+                   DATE_FORMAT(fecha_ingreso, '%Y-%m-%d') as fecha_ingreso,
+                   estatus
+            FROM estudiantes
+            WHERE matricula = %s
         """
-        Obtiene la informacion de un estudiante por su matricula
+        cursor.execute(query, (matricula,))
+        return cursor.fetchone()
+    except Error as e:
+        logger.error(f"Error en consulta: {e}")
+        return None
+    finally:
+        if connection.is_connected():
+            cursor.close()
+            connection.close()
 
-        Args:
-            matricula: Matricula del estudiante (ej: S21001234)
 
-        Returns:
-            Estudiante: Objeto con los datos del estudiante
+def listar_estudiantes_db():
+    """Lista todos los estudiantes"""
+    connection = get_db_connection()
+    if not connection:
+        return []
+
+    try:
+        cursor = connection.cursor(dictionary=True)
+        query = """
+            SELECT id_estudiante, matricula, nombre, apellido_paterno,
+                   apellido_materno, email, telefono,
+                   DATE_FORMAT(fecha_nacimiento, '%Y-%m-%d') as fecha_nacimiento,
+                   direccion,
+                   DATE_FORMAT(fecha_ingreso, '%Y-%m-%d') as fecha_ingreso,
+                   estatus
+            FROM estudiantes
+            ORDER BY apellido_paterno, apellido_materno, nombre
         """
-        logger.info(f"Consultando estudiante con matricula: {matricula}")
+        cursor.execute(query)
+        return cursor.fetchall()
+    except Error as e:
+        logger.error(f"Error listando estudiantes: {e}")
+        return []
+    finally:
+        if connection.is_connected():
+            cursor.close()
+            connection.close()
 
-        connection = get_db_connection()
-        if not connection:
-            return None
 
-        try:
-            cursor = connection.cursor(dictionary=True)
-            query = """
-                SELECT id_estudiante, matricula, nombre, apellido_paterno,
-                       apellido_materno, email, telefono,
-                       DATE_FORMAT(fecha_nacimiento, '%Y-%m-%d') as fecha_nacimiento,
-                       direccion,
-                       DATE_FORMAT(fecha_ingreso, '%Y-%m-%d') as fecha_ingreso,
-                       estatus
-                FROM estudiantes
-                WHERE matricula = %s
-            """
-            cursor.execute(query, (matricula,))
-            result = cursor.fetchone()
+def crear_estudiante_db(datos):
+    """Crea un nuevo estudiante"""
+    connection = get_db_connection()
+    if not connection:
+        return False, "Error de conexion"
 
-            if result:
-                estudiante = Estudiante(
-                    id_estudiante=result['id_estudiante'],
-                    matricula=result['matricula'],
-                    nombre=result['nombre'],
-                    apellido_paterno=result['apellido_paterno'],
-                    apellido_materno=result['apellido_materno'] or '',
-                    email=result['email'],
-                    telefono=result['telefono'] or '',
-                    fecha_nacimiento=result['fecha_nacimiento'] or '',
-                    direccion=result['direccion'] or '',
-                    fecha_ingreso=result['fecha_ingreso'],
-                    estatus=result['estatus']
-                )
-                logger.info(f"Estudiante encontrado: {result['nombre']}")
-                return estudiante
+    try:
+        cursor = connection.cursor()
+        query = """
+            INSERT INTO estudiantes
+            (matricula, nombre, apellido_paterno, apellido_materno,
+             email, telefono, fecha_nacimiento, direccion, fecha_ingreso, estatus)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'activo')
+        """
+        cursor.execute(query, (
+            datos.get('matricula'), datos.get('nombre'),
+            datos.get('apellido_paterno'), datos.get('apellido_materno'),
+            datos.get('email'), datos.get('telefono'),
+            datos.get('fecha_nacimiento') or None, datos.get('direccion'),
+            datos.get('fecha_ingreso')
+        ))
+        connection.commit()
+        return True, f"Estudiante {datos.get('matricula')} creado exitosamente"
+    except Error as e:
+        return False, str(e)
+    finally:
+        if connection.is_connected():
+            cursor.close()
+            connection.close()
+
+
+def actualizar_estudiante_db(datos):
+    """Actualiza un estudiante"""
+    connection = get_db_connection()
+    if not connection:
+        return False, "Error de conexion"
+
+    try:
+        cursor = connection.cursor()
+        query = """
+            UPDATE estudiantes
+            SET nombre = %s, apellido_paterno = %s, apellido_materno = %s,
+                email = %s, telefono = %s, fecha_nacimiento = %s,
+                direccion = %s, fecha_ingreso = %s, estatus = %s
+            WHERE matricula = %s
+        """
+        cursor.execute(query, (
+            datos.get('nombre'), datos.get('apellido_paterno'),
+            datos.get('apellido_materno'), datos.get('email'),
+            datos.get('telefono'), datos.get('fecha_nacimiento') or None,
+            datos.get('direccion'), datos.get('fecha_ingreso'),
+            datos.get('estatus'), datos.get('matricula')
+        ))
+        connection.commit()
+        if cursor.rowcount > 0:
+            return True, f"Estudiante {datos.get('matricula')} actualizado"
+        return False, "Estudiante no encontrado"
+    except Error as e:
+        return False, str(e)
+    finally:
+        if connection.is_connected():
+            cursor.close()
+            connection.close()
+
+
+def eliminar_estudiante_db(matricula):
+    """Elimina un estudiante"""
+    connection = get_db_connection()
+    if not connection:
+        return False, "Error de conexion"
+
+    try:
+        cursor = connection.cursor()
+        cursor.execute("DELETE FROM estudiantes WHERE matricula = %s", (matricula,))
+        connection.commit()
+        if cursor.rowcount > 0:
+            return True, f"Estudiante {matricula} eliminado"
+        return False, "Estudiante no encontrado"
+    except Error as e:
+        return False, str(e)
+    finally:
+        if connection.is_connected():
+            cursor.close()
+            connection.close()
+
+
+def buscar_por_estatus_db(estatus):
+    """Busca estudiantes por estatus"""
+    connection = get_db_connection()
+    if not connection:
+        return []
+
+    try:
+        cursor = connection.cursor(dictionary=True)
+        query = """
+            SELECT id_estudiante, matricula, nombre, apellido_paterno,
+                   apellido_materno, email, telefono,
+                   DATE_FORMAT(fecha_nacimiento, '%Y-%m-%d') as fecha_nacimiento,
+                   direccion,
+                   DATE_FORMAT(fecha_ingreso, '%Y-%m-%d') as fecha_ingreso,
+                   estatus
+            FROM estudiantes
+            WHERE estatus = %s
+            ORDER BY apellido_paterno, apellido_materno, nombre
+        """
+        cursor.execute(query, (estatus,))
+        return cursor.fetchall()
+    except Error as e:
+        logger.error(f"Error buscando estudiantes: {e}")
+        return []
+    finally:
+        if connection.is_connected():
+            cursor.close()
+            connection.close()
+
+
+def extraer_valor_xml(xml_str, tag):
+    """Extrae el valor de un tag XML"""
+    import re
+    pattern = f'<[^>]*{tag}[^>]*>([^<]*)</[^>]*{tag}>'
+    match = re.search(pattern, xml_str)
+    return match.group(1) if match else None
+
+
+@app.route('/', methods=['GET', 'POST'])
+def soap_endpoint():
+    """Endpoint principal SOAP"""
+
+    # Si es GET con ?wsdl, devolver WSDL
+    if request.method == 'GET' and 'wsdl' in request.args:
+        wsdl = f'''<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://schemas.xmlsoap.org/wsdl/"
+             xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+             xmlns:tns="{NAMESPACE}"
+             xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+             name="EstudianteService"
+             targetNamespace="{NAMESPACE}">
+
+    <types>
+        <xsd:schema targetNamespace="{NAMESPACE}">
+            <xsd:complexType name="Estudiante">
+                <xsd:sequence>
+                    <xsd:element name="id_estudiante" type="xsd:int"/>
+                    <xsd:element name="matricula" type="xsd:string"/>
+                    <xsd:element name="nombre" type="xsd:string"/>
+                    <xsd:element name="apellido_paterno" type="xsd:string"/>
+                    <xsd:element name="apellido_materno" type="xsd:string"/>
+                    <xsd:element name="email" type="xsd:string"/>
+                    <xsd:element name="telefono" type="xsd:string"/>
+                    <xsd:element name="fecha_nacimiento" type="xsd:string"/>
+                    <xsd:element name="direccion" type="xsd:string"/>
+                    <xsd:element name="fecha_ingreso" type="xsd:string"/>
+                    <xsd:element name="estatus" type="xsd:string"/>
+                </xsd:sequence>
+            </xsd:complexType>
+        </xsd:schema>
+    </types>
+
+    <message name="obtener_estudiante_request">
+        <part name="matricula" type="xsd:string"/>
+    </message>
+    <message name="obtener_estudiante_response">
+        <part name="estudiante" type="tns:Estudiante"/>
+    </message>
+
+    <message name="listar_estudiantes_request"/>
+    <message name="listar_estudiantes_response">
+        <part name="estudiantes" type="tns:Estudiante"/>
+    </message>
+
+    <message name="crear_estudiante_request">
+        <part name="estudiante" type="tns:Estudiante"/>
+    </message>
+    <message name="crear_estudiante_response">
+        <part name="resultado" type="xsd:string"/>
+    </message>
+
+    <portType name="EstudiantePortType">
+        <operation name="obtener_estudiante">
+            <input message="tns:obtener_estudiante_request"/>
+            <output message="tns:obtener_estudiante_response"/>
+        </operation>
+        <operation name="listar_estudiantes">
+            <input message="tns:listar_estudiantes_request"/>
+            <output message="tns:listar_estudiantes_response"/>
+        </operation>
+        <operation name="crear_estudiante">
+            <input message="tns:crear_estudiante_request"/>
+            <output message="tns:crear_estudiante_response"/>
+        </operation>
+    </portType>
+
+    <binding name="EstudianteBinding" type="tns:EstudiantePortType">
+        <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+        <operation name="obtener_estudiante">
+            <soap:operation soapAction="obtener_estudiante"/>
+        </operation>
+        <operation name="listar_estudiantes">
+            <soap:operation soapAction="listar_estudiantes"/>
+        </operation>
+        <operation name="crear_estudiante">
+            <soap:operation soapAction="crear_estudiante"/>
+        </operation>
+    </binding>
+
+    <service name="EstudianteService">
+        <port name="EstudiantePort" binding="tns:EstudianteBinding">
+            <soap:address location="http://localhost:8000/"/>
+        </port>
+    </service>
+</definitions>'''
+        return Response(wsdl, mimetype='text/xml')
+
+    # Procesar peticion SOAP POST
+    if request.method == 'POST':
+        xml_data = request.data.decode('utf-8')
+        logger.info(f"Request recibido: {xml_data[:200]}...")
+
+        # Detectar operacion
+        if 'listar_estudiantes' in xml_data:
+            estudiantes = listar_estudiantes_db()
+            estudiantes_xml = '\n'.join([estudiante_to_xml(e) for e in estudiantes])
+            body = f'''<tns:listar_estudiantes_response>
+            {estudiantes_xml}
+        </tns:listar_estudiantes_response>'''
+            return Response(crear_respuesta_soap(body), mimetype='text/xml')
+
+        elif 'obtener_estudiante' in xml_data:
+            matricula = extraer_valor_xml(xml_data, 'matricula')
+            if matricula:
+                estudiante = obtener_estudiante_db(matricula)
+                if estudiante:
+                    body = f'''<tns:obtener_estudiante_response>
+                    {estudiante_to_xml(estudiante)}
+                </tns:obtener_estudiante_response>'''
+                else:
+                    body = f'''<tns:obtener_estudiante_response>
+                    <tns:error>Estudiante no encontrado</tns:error>
+                </tns:obtener_estudiante_response>'''
             else:
-                logger.warning(f"Estudiante no encontrado: {matricula}")
-                return None
+                body = '<tns:error>Matricula no proporcionada</tns:error>'
+            return Response(crear_respuesta_soap(body), mimetype='text/xml')
 
-        except Error as e:
-            logger.error(f"Error en consulta: {e}")
-            return None
-        finally:
-            if connection.is_connected():
-                cursor.close()
-                connection.close()
+        elif 'crear_estudiante' in xml_data:
+            datos = {
+                'matricula': extraer_valor_xml(xml_data, 'matricula'),
+                'nombre': extraer_valor_xml(xml_data, 'nombre'),
+                'apellido_paterno': extraer_valor_xml(xml_data, 'apellido_paterno'),
+                'apellido_materno': extraer_valor_xml(xml_data, 'apellido_materno'),
+                'email': extraer_valor_xml(xml_data, 'email'),
+                'telefono': extraer_valor_xml(xml_data, 'telefono'),
+                'fecha_nacimiento': extraer_valor_xml(xml_data, 'fecha_nacimiento'),
+                'direccion': extraer_valor_xml(xml_data, 'direccion'),
+                'fecha_ingreso': extraer_valor_xml(xml_data, 'fecha_ingreso')
+            }
+            exito, mensaje = crear_estudiante_db(datos)
+            body = f'''<tns:crear_estudiante_response>
+                <tns:exito>{'true' if exito else 'false'}</tns:exito>
+                <tns:mensaje>{mensaje}</tns:mensaje>
+            </tns:crear_estudiante_response>'''
+            return Response(crear_respuesta_soap(body), mimetype='text/xml')
 
-    @rpc(_returns=Iterable(Estudiante))
-    def listar_estudiantes(ctx):
-        """
-        Lista todos los estudiantes registrados en el sistema
+        elif 'actualizar_estudiante' in xml_data:
+            datos = {
+                'matricula': extraer_valor_xml(xml_data, 'matricula'),
+                'nombre': extraer_valor_xml(xml_data, 'nombre'),
+                'apellido_paterno': extraer_valor_xml(xml_data, 'apellido_paterno'),
+                'apellido_materno': extraer_valor_xml(xml_data, 'apellido_materno'),
+                'email': extraer_valor_xml(xml_data, 'email'),
+                'telefono': extraer_valor_xml(xml_data, 'telefono'),
+                'fecha_nacimiento': extraer_valor_xml(xml_data, 'fecha_nacimiento'),
+                'direccion': extraer_valor_xml(xml_data, 'direccion'),
+                'fecha_ingreso': extraer_valor_xml(xml_data, 'fecha_ingreso'),
+                'estatus': extraer_valor_xml(xml_data, 'estatus')
+            }
+            exito, mensaje = actualizar_estudiante_db(datos)
+            body = f'''<tns:actualizar_estudiante_response>
+                <tns:exito>{'true' if exito else 'false'}</tns:exito>
+                <tns:mensaje>{mensaje}</tns:mensaje>
+            </tns:actualizar_estudiante_response>'''
+            return Response(crear_respuesta_soap(body), mimetype='text/xml')
 
-        Returns:
-            Iterable[Estudiante]: Lista de estudiantes
-        """
-        logger.info("Listando todos los estudiantes")
+        elif 'eliminar_estudiante' in xml_data:
+            matricula = extraer_valor_xml(xml_data, 'matricula')
+            exito, mensaje = eliminar_estudiante_db(matricula)
+            body = f'''<tns:eliminar_estudiante_response>
+                <tns:exito>{'true' if exito else 'false'}</tns:exito>
+                <tns:mensaje>{mensaje}</tns:mensaje>
+            </tns:eliminar_estudiante_response>'''
+            return Response(crear_respuesta_soap(body), mimetype='text/xml')
 
-        connection = get_db_connection()
-        if not connection:
-            return []
+        elif 'buscar_estudiantes_por_estatus' in xml_data:
+            estatus = extraer_valor_xml(xml_data, 'estatus')
+            estudiantes = buscar_por_estatus_db(estatus)
+            estudiantes_xml = '\n'.join([estudiante_to_xml(e) for e in estudiantes])
+            body = f'''<tns:buscar_estudiantes_por_estatus_response>
+                {estudiantes_xml}
+            </tns:buscar_estudiantes_por_estatus_response>'''
+            return Response(crear_respuesta_soap(body), mimetype='text/xml')
 
-        try:
-            cursor = connection.cursor(dictionary=True)
-            query = """
-                SELECT id_estudiante, matricula, nombre, apellido_paterno,
-                       apellido_materno, email, telefono,
-                       DATE_FORMAT(fecha_nacimiento, '%Y-%m-%d') as fecha_nacimiento,
-                       direccion,
-                       DATE_FORMAT(fecha_ingreso, '%Y-%m-%d') as fecha_ingreso,
-                       estatus
-                FROM estudiantes
-                ORDER BY apellido_paterno, apellido_materno, nombre
-            """
-            cursor.execute(query)
-            results = cursor.fetchall()
+        else:
+            body = '<tns:error>Operacion no reconocida</tns:error>'
+            return Response(crear_respuesta_soap(body), mimetype='text/xml')
 
-            estudiantes = []
-            for result in results:
-                estudiante = Estudiante(
-                    id_estudiante=result['id_estudiante'],
-                    matricula=result['matricula'],
-                    nombre=result['nombre'],
-                    apellido_paterno=result['apellido_paterno'],
-                    apellido_materno=result['apellido_materno'] or '',
-                    email=result['email'],
-                    telefono=result['telefono'] or '',
-                    fecha_nacimiento=result['fecha_nacimiento'] or '',
-                    direccion=result['direccion'] or '',
-                    fecha_ingreso=result['fecha_ingreso'],
-                    estatus=result['estatus']
-                )
-                estudiantes.append(estudiante)
-
-            logger.info(f"Total de estudiantes encontrados: {len(estudiantes)}")
-            return estudiantes
-
-        except Error as e:
-            logger.error(f"Error listando estudiantes: {e}")
-            return []
-        finally:
-            if connection.is_connected():
-                cursor.close()
-                connection.close()
-
-    @rpc(Unicode, Unicode, Unicode, Unicode, Unicode, Unicode, Unicode, Unicode, Unicode,
-         _returns=RespuestaOperacion)
-    def crear_estudiante(ctx, matricula, nombre, apellido_paterno, apellido_materno,
-                         email, telefono, fecha_nacimiento, direccion, fecha_ingreso):
-        """
-        Crea un nuevo estudiante en el sistema
-
-        Args:
-            matricula: Matricula unica del estudiante
-            nombre: Nombre(s) del estudiante
-            apellido_paterno: Apellido paterno
-            apellido_materno: Apellido materno
-            email: Correo electronico institucional
-            telefono: Numero de telefono
-            fecha_nacimiento: Fecha de nacimiento (YYYY-MM-DD)
-            direccion: Direccion del estudiante
-            fecha_ingreso: Fecha de ingreso a la universidad (YYYY-MM-DD)
-
-        Returns:
-            RespuestaOperacion: Resultado de la operacion
-        """
-        logger.info(f"Creando nuevo estudiante: {matricula}")
-
-        connection = get_db_connection()
-        if not connection:
-            return RespuestaOperacion(
-                exito='false',
-                mensaje='Error de conexion a la base de datos',
-                codigo=500
-            )
-
-        try:
-            cursor = connection.cursor()
-            query = """
-                INSERT INTO estudiantes
-                (matricula, nombre, apellido_paterno, apellido_materno,
-                 email, telefono, fecha_nacimiento, direccion, fecha_ingreso, estatus)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'activo')
-            """
-            cursor.execute(query, (
-                matricula, nombre, apellido_paterno, apellido_materno,
-                email, telefono, fecha_nacimiento or None, direccion, fecha_ingreso
-            ))
-            connection.commit()
-
-            logger.info(f"Estudiante creado exitosamente: {matricula}")
-            return RespuestaOperacion(
-                exito='true',
-                mensaje=f'Estudiante {matricula} creado exitosamente',
-                codigo=201
-            )
-
-        except Error as e:
-            logger.error(f"Error creando estudiante: {e}")
-            return RespuestaOperacion(
-                exito='false',
-                mensaje=f'Error al crear estudiante: {str(e)}',
-                codigo=400
-            )
-        finally:
-            if connection.is_connected():
-                cursor.close()
-                connection.close()
-
-    @rpc(Unicode, Unicode, Unicode, Unicode, Unicode, Unicode, Unicode, Unicode, Unicode, Unicode,
-         _returns=RespuestaOperacion)
-    def actualizar_estudiante(ctx, matricula, nombre, apellido_paterno, apellido_materno,
-                              email, telefono, fecha_nacimiento, direccion, fecha_ingreso, estatus):
-        """
-        Actualiza los datos de un estudiante existente
-
-        Args:
-            matricula: Matricula del estudiante a actualizar
-            nombre: Nuevo nombre
-            apellido_paterno: Nuevo apellido paterno
-            apellido_materno: Nuevo apellido materno
-            email: Nuevo email
-            telefono: Nuevo telefono
-            fecha_nacimiento: Nueva fecha de nacimiento
-            direccion: Nueva direccion
-            fecha_ingreso: Nueva fecha de ingreso
-            estatus: Nuevo estatus (activo, inactivo, egresado, baja)
-
-        Returns:
-            RespuestaOperacion: Resultado de la operacion
-        """
-        logger.info(f"Actualizando estudiante: {matricula}")
-
-        connection = get_db_connection()
-        if not connection:
-            return RespuestaOperacion(
-                exito='false',
-                mensaje='Error de conexion a la base de datos',
-                codigo=500
-            )
-
-        try:
-            cursor = connection.cursor()
-            query = """
-                UPDATE estudiantes
-                SET nombre = %s, apellido_paterno = %s, apellido_materno = %s,
-                    email = %s, telefono = %s, fecha_nacimiento = %s,
-                    direccion = %s, fecha_ingreso = %s, estatus = %s
-                WHERE matricula = %s
-            """
-            cursor.execute(query, (
-                nombre, apellido_paterno, apellido_materno, email, telefono,
-                fecha_nacimiento or None, direccion, fecha_ingreso, estatus, matricula
-            ))
-            connection.commit()
-
-            if cursor.rowcount > 0:
-                logger.info(f"Estudiante actualizado: {matricula}")
-                return RespuestaOperacion(
-                    exito='true',
-                    mensaje=f'Estudiante {matricula} actualizado exitosamente',
-                    codigo=200
-                )
-            else:
-                return RespuestaOperacion(
-                    exito='false',
-                    mensaje=f'Estudiante {matricula} no encontrado',
-                    codigo=404
-                )
-
-        except Error as e:
-            logger.error(f"Error actualizando estudiante: {e}")
-            return RespuestaOperacion(
-                exito='false',
-                mensaje=f'Error al actualizar estudiante: {str(e)}',
-                codigo=400
-            )
-        finally:
-            if connection.is_connected():
-                cursor.close()
-                connection.close()
-
-    @rpc(Unicode, _returns=RespuestaOperacion)
-    def eliminar_estudiante(ctx, matricula):
-        """
-        Elimina un estudiante del sistema
-
-        Args:
-            matricula: Matricula del estudiante a eliminar
-
-        Returns:
-            RespuestaOperacion: Resultado de la operacion
-        """
-        logger.info(f"Eliminando estudiante: {matricula}")
-
-        connection = get_db_connection()
-        if not connection:
-            return RespuestaOperacion(
-                exito='false',
-                mensaje='Error de conexion a la base de datos',
-                codigo=500
-            )
-
-        try:
-            cursor = connection.cursor()
-            query = "DELETE FROM estudiantes WHERE matricula = %s"
-            cursor.execute(query, (matricula,))
-            connection.commit()
-
-            if cursor.rowcount > 0:
-                logger.info(f"Estudiante eliminado: {matricula}")
-                return RespuestaOperacion(
-                    exito='true',
-                    mensaje=f'Estudiante {matricula} eliminado exitosamente',
-                    codigo=200
-                )
-            else:
-                return RespuestaOperacion(
-                    exito='false',
-                    mensaje=f'Estudiante {matricula} no encontrado',
-                    codigo=404
-                )
-
-        except Error as e:
-            logger.error(f"Error eliminando estudiante: {e}")
-            return RespuestaOperacion(
-                exito='false',
-                mensaje=f'Error al eliminar estudiante: {str(e)}',
-                codigo=400
-            )
-        finally:
-            if connection.is_connected():
-                cursor.close()
-                connection.close()
-
-    @rpc(Unicode, _returns=Iterable(Estudiante))
-    def buscar_estudiantes_por_estatus(ctx, estatus):
-        """
-        Busca estudiantes por su estatus
-
-        Args:
-            estatus: Estatus a buscar (activo, inactivo, egresado, baja)
-
-        Returns:
-            Iterable[Estudiante]: Lista de estudiantes con ese estatus
-        """
-        logger.info(f"Buscando estudiantes con estatus: {estatus}")
-
-        connection = get_db_connection()
-        if not connection:
-            return []
-
-        try:
-            cursor = connection.cursor(dictionary=True)
-            query = """
-                SELECT id_estudiante, matricula, nombre, apellido_paterno,
-                       apellido_materno, email, telefono,
-                       DATE_FORMAT(fecha_nacimiento, '%Y-%m-%d') as fecha_nacimiento,
-                       direccion,
-                       DATE_FORMAT(fecha_ingreso, '%Y-%m-%d') as fecha_ingreso,
-                       estatus
-                FROM estudiantes
-                WHERE estatus = %s
-                ORDER BY apellido_paterno, apellido_materno, nombre
-            """
-            cursor.execute(query, (estatus,))
-            results = cursor.fetchall()
-
-            estudiantes = []
-            for result in results:
-                estudiante = Estudiante(
-                    id_estudiante=result['id_estudiante'],
-                    matricula=result['matricula'],
-                    nombre=result['nombre'],
-                    apellido_paterno=result['apellido_paterno'],
-                    apellido_materno=result['apellido_materno'] or '',
-                    email=result['email'],
-                    telefono=result['telefono'] or '',
-                    fecha_nacimiento=result['fecha_nacimiento'] or '',
-                    direccion=result['direccion'] or '',
-                    fecha_ingreso=result['fecha_ingreso'],
-                    estatus=result['estatus']
-                )
-                estudiantes.append(estudiante)
-
-            logger.info(f"Estudiantes encontrados con estatus {estatus}: {len(estudiantes)}")
-            return estudiantes
-
-        except Error as e:
-            logger.error(f"Error buscando estudiantes: {e}")
-            return []
-        finally:
-            if connection.is_connected():
-                cursor.close()
-                connection.close()
-
-
-# Configuracion de la aplicacion SOAP
-application = Application(
-    [EstudianteService],
-    tns='http://uav.mx/servicios/estudiantes',
-    in_protocol=Soap11(validator='lxml'),
-    out_protocol=Soap11()
-)
-
-# Crear aplicacion WSGI
-wsgi_application = WsgiApplication(application)
+    # GET sin WSDL - mostrar info
+    return '''
+    <h1>API SOAP - Sistema de Estudiantes</h1>
+    <h2>Universidad Autonoma Veracruzana</h2>
+    <p>WSDL: <a href="/?wsdl">/?wsdl</a></p>
+    <h3>Operaciones disponibles:</h3>
+    <ul>
+        <li>obtener_estudiante(matricula)</li>
+        <li>listar_estudiantes()</li>
+        <li>crear_estudiante(...)</li>
+        <li>actualizar_estudiante(...)</li>
+        <li>eliminar_estudiante(matricula)</li>
+        <li>buscar_estudiantes_por_estatus(estatus)</li>
+    </ul>
+    '''
 
 
 if __name__ == '__main__':
@@ -485,5 +465,4 @@ if __name__ == '__main__':
     print("\nPresiona Ctrl+C para detener el servidor")
     print("=" * 60)
 
-    server = make_server('localhost', 8000, wsgi_application)
-    server.serve_forever()
+    app.run(host='0.0.0.0', port=8000, debug=False)
