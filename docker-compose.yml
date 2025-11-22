@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  # Base de datos MySQL
+  mysql:
+    image: mysql:8.0
+    container_name: uav-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root123
+      MYSQL_DATABASE: uav_sistema_academico
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    networks:
+      - uav-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
+
+  # API SOAP - Estudiantes (Python)
+  api-soap:
+    build: ./api-soap-python
+    container_name: uav-api-soap
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_HOST=mysql
+      - DB_USER=root
+      - DB_PASSWORD=root123
+      - DB_NAME=uav_sistema_academico
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - uav-network
+
+  # API REST - Cursos (Java)
+  api-rest:
+    build: ./api-rest-java
+    container_name: uav-api-rest
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/uav_sistema_academico?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=root
+      - SPRING_DATASOURCE_PASSWORD=root123
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - uav-network
+
+networks:
+  uav-network:
+    driver: bridge
+
+volumes:
+  mysql_data:

@@ -1,0 +1,480 @@
+{
+	"info": {
+		"_postman_id": "uav-soa-2025",
+		"name": "UAV - Sistema Academico SOA",
+		"description": "Coleccion de pruebas para el Sistema Academico de la Universidad Autonoma Veracruzana.\n\nIncluye pruebas para:\n- API SOAP (Estudiantes) - Python\n- API REST (Cursos) - Java Spring Boot",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "API REST - Cursos (Java)",
+			"item": [
+				{
+					"name": "Listar todos los cursos",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8080/api/cursos",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8080",
+							"path": ["api", "cursos"]
+						},
+						"description": "Obtiene la lista completa de cursos registrados en el sistema"
+					},
+					"response": []
+				},
+				{
+					"name": "Obtener curso por ID",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8080/api/cursos/1",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8080",
+							"path": ["api", "cursos", "1"]
+						},
+						"description": "Obtiene un curso especifico por su ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Obtener curso por codigo",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8080/api/cursos/codigo/ISC101",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8080",
+							"path": ["api", "cursos", "codigo", "ISC101"]
+						},
+						"description": "Obtiene un curso por su codigo unico"
+					},
+					"response": []
+				},
+				{
+					"name": "Crear nuevo curso",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"codigo\": \"ISC601\",\n    \"nombre\": \"Inteligencia Artificial\",\n    \"descripcion\": \"Fundamentos de IA, aprendizaje automatico y redes neuronales\",\n    \"creditos\": 8,\n    \"horasTeoricas\": 3,\n    \"horasPracticas\": 2,\n    \"idCarrera\": 1,\n    \"semestre\": 6,\n    \"estatus\": \"activo\"\n}"
+						},
+						"url": {
+							"raw": "http://localhost:8080/api/cursos",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8080",
+							"path": ["api", "cursos"]
+						},
+						"description": "Crea un nuevo curso en el sistema"
+					},
+					"response": []
+				},
+				{
+					"name": "Actualizar curso",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"codigo\": \"ISC101\",\n    \"nombre\": \"Programacion I - Actualizado\",\n    \"descripcion\": \"Fundamentos de programacion, algoritmos y estructuras basicas\",\n    \"creditos\": 10,\n    \"horasTeoricas\": 4,\n    \"horasPracticas\": 2,\n    \"idCarrera\": 1,\n    \"semestre\": 1,\n    \"estatus\": \"activo\"\n}"
+						},
+						"url": {
+							"raw": "http://localhost:8080/api/cursos/1",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8080",
+							"path": ["api", "cursos", "1"]
+						},
+						"description": "Actualiza los datos de un curso existente"
+					},
+					"response": []
+				},
+				{
+					"name": "Eliminar curso",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8080/api/cursos/7",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8080",
+							"path": ["api", "cursos", "7"]
+						},
+						"description": "Elimina un curso del sistema"
+					},
+					"response": []
+				},
+				{
+					"name": "Listar cursos por carrera",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8080/api/cursos/carrera/1",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8080",
+							"path": ["api", "cursos", "carrera", "1"]
+						},
+						"description": "Obtiene todos los cursos de una carrera especifica"
+					},
+					"response": []
+				},
+				{
+					"name": "Listar cursos por semestre",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8080/api/cursos/semestre/1",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8080",
+							"path": ["api", "cursos", "semestre", "1"]
+						},
+						"description": "Obtiene todos los cursos de un semestre"
+					},
+					"response": []
+				},
+				{
+					"name": "Listar cursos activos",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8080/api/cursos/activos",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8080",
+							"path": ["api", "cursos", "activos"]
+						},
+						"description": "Obtiene solo los cursos con estatus activo"
+					},
+					"response": []
+				},
+				{
+					"name": "Buscar cursos por nombre",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8080/api/cursos/buscar?nombre=programacion",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8080",
+							"path": ["api", "cursos", "buscar"],
+							"query": [
+								{
+									"key": "nombre",
+									"value": "programacion"
+								}
+							]
+						},
+						"description": "Busca cursos que contengan el texto especificado en su nombre"
+					},
+					"response": []
+				},
+				{
+					"name": "Estadisticas por carrera",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Accept",
+								"value": "application/json"
+							}
+						],
+						"url": {
+							"raw": "http://localhost:8080/api/cursos/estadisticas/carrera/1",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8080",
+							"path": ["api", "cursos", "estadisticas", "carrera", "1"]
+						},
+						"description": "Obtiene estadisticas de cursos para una carrera"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints de la API REST para gestion de Cursos implementada en Java con Spring Boot"
+		},
+		{
+			"name": "API SOAP - Estudiantes (Python)",
+			"item": [
+				{
+					"name": "Obtener WSDL",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "http://localhost:8000/?wsdl",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"query": [
+								{
+									"key": "wsdl",
+									"value": null
+								}
+							]
+						},
+						"description": "Obtiene el documento WSDL del servicio SOAP"
+					},
+					"response": []
+				},
+				{
+					"name": "Listar todos los estudiantes",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "text/xml; charset=utf-8"
+							},
+							{
+								"key": "SOAPAction",
+								"value": "listar_estudiantes"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\"\n               xmlns:tns=\"http://uav.mx/servicios/estudiantes\">\n    <soap:Body>\n        <tns:listar_estudiantes/>\n    </soap:Body>\n</soap:Envelope>"
+						},
+						"url": {
+							"raw": "http://localhost:8000/",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": [""]
+						},
+						"description": "Lista todos los estudiantes registrados"
+					},
+					"response": []
+				},
+				{
+					"name": "Obtener estudiante por matricula",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "text/xml; charset=utf-8"
+							},
+							{
+								"key": "SOAPAction",
+								"value": "obtener_estudiante"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\"\n               xmlns:tns=\"http://uav.mx/servicios/estudiantes\">\n    <soap:Body>\n        <tns:obtener_estudiante>\n            <tns:matricula>S21001234</tns:matricula>\n        </tns:obtener_estudiante>\n    </soap:Body>\n</soap:Envelope>"
+						},
+						"url": {
+							"raw": "http://localhost:8000/",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": [""]
+						},
+						"description": "Obtiene informacion de un estudiante por su matricula"
+					},
+					"response": []
+				},
+				{
+					"name": "Crear nuevo estudiante",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "text/xml; charset=utf-8"
+							},
+							{
+								"key": "SOAPAction",
+								"value": "crear_estudiante"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\"\n               xmlns:tns=\"http://uav.mx/servicios/estudiantes\">\n    <soap:Body>\n        <tns:crear_estudiante>\n            <tns:matricula>S25001000</tns:matricula>\n            <tns:nombre>Luis Alberto</tns:nombre>\n            <tns:apellido_paterno>Hernandez</tns:apellido_paterno>\n            <tns:apellido_materno>Gomez</tns:apellido_materno>\n            <tns:email>luis.hernandez@estudiantes.uav.mx</tns:email>\n            <tns:telefono>2289876543</tns:telefono>\n            <tns:fecha_nacimiento>2003-04-15</tns:fecha_nacimiento>\n            <tns:direccion>Av. Universidad 123, Xalapa, Ver.</tns:direccion>\n            <tns:fecha_ingreso>2025-08-01</tns:fecha_ingreso>\n        </tns:crear_estudiante>\n    </soap:Body>\n</soap:Envelope>"
+						},
+						"url": {
+							"raw": "http://localhost:8000/",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": [""]
+						},
+						"description": "Crea un nuevo estudiante en el sistema"
+					},
+					"response": []
+				},
+				{
+					"name": "Actualizar estudiante",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "text/xml; charset=utf-8"
+							},
+							{
+								"key": "SOAPAction",
+								"value": "actualizar_estudiante"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\"\n               xmlns:tns=\"http://uav.mx/servicios/estudiantes\">\n    <soap:Body>\n        <tns:actualizar_estudiante>\n            <tns:matricula>S21001234</tns:matricula>\n            <tns:nombre>Juan Carlos</tns:nombre>\n            <tns:apellido_paterno>Garcia</tns:apellido_paterno>\n            <tns:apellido_materno>Lopez</tns:apellido_materno>\n            <tns:email>juan.garcia.actualizado@estudiantes.uav.mx</tns:email>\n            <tns:telefono>2281111111</tns:telefono>\n            <tns:fecha_nacimiento>2000-05-15</tns:fecha_nacimiento>\n            <tns:direccion>Nueva direccion actualizada, Xalapa, Ver.</tns:direccion>\n            <tns:fecha_ingreso>2021-08-01</tns:fecha_ingreso>\n            <tns:estatus>activo</tns:estatus>\n        </tns:actualizar_estudiante>\n    </soap:Body>\n</soap:Envelope>"
+						},
+						"url": {
+							"raw": "http://localhost:8000/",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": [""]
+						},
+						"description": "Actualiza los datos de un estudiante existente"
+					},
+					"response": []
+				},
+				{
+					"name": "Eliminar estudiante",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "text/xml; charset=utf-8"
+							},
+							{
+								"key": "SOAPAction",
+								"value": "eliminar_estudiante"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\"\n               xmlns:tns=\"http://uav.mx/servicios/estudiantes\">\n    <soap:Body>\n        <tns:eliminar_estudiante>\n            <tns:matricula>S25001000</tns:matricula>\n        </tns:eliminar_estudiante>\n    </soap:Body>\n</soap:Envelope>"
+						},
+						"url": {
+							"raw": "http://localhost:8000/",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": [""]
+						},
+						"description": "Elimina un estudiante del sistema"
+					},
+					"response": []
+				},
+				{
+					"name": "Buscar estudiantes por estatus",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "text/xml; charset=utf-8"
+							},
+							{
+								"key": "SOAPAction",
+								"value": "buscar_estudiantes_por_estatus"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\"\n               xmlns:tns=\"http://uav.mx/servicios/estudiantes\">\n    <soap:Body>\n        <tns:buscar_estudiantes_por_estatus>\n            <tns:estatus>activo</tns:estatus>\n        </tns:buscar_estudiantes_por_estatus>\n    </soap:Body>\n</soap:Envelope>"
+						},
+						"url": {
+							"raw": "http://localhost:8000/",
+							"protocol": "http",
+							"host": ["localhost"],
+							"port": "8000",
+							"path": [""]
+						},
+						"description": "Busca estudiantes por su estatus (activo, inactivo, egresado, baja)"
+					},
+					"response": []
+				}
+			],
+			"description": "Endpoints de la API SOAP para gestion de Estudiantes implementada en Python con Spyne"
+		}
+	],
+	"variable": [
+		{
+			"key": "rest_base_url",
+			"value": "http://localhost:8080/api"
+		},
+		{
+			"key": "soap_base_url",
+			"value": "http://localhost:8000"
+		}
+	]
+}
